@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>全民投资大战 · 多年度结算（自动记录）</title>
+<title>The Amazing Investor</title>
 
 <style>
   :root{
@@ -177,7 +177,7 @@
 <!-- ✅ 以下是你原本的投资大战主页面（保持完全不变） -->
 <header>
   <div class="wrap">
-    <h1>全民投资大战 · 结算页面 <span class="badge">A–F 六只股票</span></h1>
+    <h1>了不起的投资人 · 结算页面 <span class="badge">A–F 六只股票</span></h1>
     <div class="controls">
       <label>组别数量：
         <input id="groupCount" type="number" min="1" max="20" value="4" />
@@ -370,6 +370,16 @@
   margin-top: 20px;
 }
 
+/* 默认隐藏年末价输入框 */
+.hidden-end {
+  display: none !important;
+}
+
+/* 默认隐藏年末价、盈亏列 */
+.hidden-end,
+.hidden-pnl {
+  display: none !important;
+}
 </style>
 
 <script>
@@ -425,40 +435,69 @@ generateBtn.addEventListener('click', () => {
 </script>
 
 <script>
+/* === 固定股票与初始数据 === */
 const DEFAULT_STOCKS = [
-  {code:"A", name:"科技先锋", sector:"科技",    init:10.00, end:13.00},
-  {code:"B", name:"黄金之路", sector:"贵金属",  init:5.00,  end:4.75},
-  {code:"C", name:"健康中国", sector:"医药",    init:8.00,  end:8.80},
-  {code:"D", name:"蓝天能源", sector:"新能源",  init:6.00,  end:9.00},
-  {code:"E", name:"泡沫地产", sector:"房地产",  init:15.00, end:13.50},
-  {code:"F", name:"银行巨头", sector:"金融",    init:12.00, end:12.60},
+  {code:"A", name:"科技先锋", sector:"科技"},
+  {code:"B", name:"黄金之路", sector:"贵金属"},
+  {code:"C", name:"健康中国", sector:"医药"},
+  {code:"D", name:"蓝天能源", sector:"新能源"},
+  {code:"E", name:"泡沫地产", sector:"房地产"},
+  {code:"F", name:"银行巨头", sector:"金融"},
 ];
 const DEFAULT_CASH = 100000;
-const el = sel => document.querySelector(sel);
-const fmt = n => new Intl.NumberFormat('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}).format(+n || 0);
+
+/* ✅ 固定年度剧本（年初价 + 年末价） */
+const YEARLY_PRICES = {
+  2020: {
+    A:{init:15.50,end:26.00}, B:{init:12.80,end:11.50}, C:{init:15.00,end:10.00},
+    D:{init:6.30,end:14.50}, E:{init:9.80,end:8.20}, F:{init:7.20,end:11.00}
+  },
+  2021: {
+    A:{init:26.00,end:19.00}, B:{init:11.50,end:12.00}, C:{init:10.00,end:22.00},
+    D:{init:14.50,end:10.50}, E:{init:8.20,end:5.00}, F:{init:11.00,end:12.50}
+  },
+  2022: {
+    A:{init:19.00,end:14.00}, B:{init:12.00,end:11.00}, C:{init:22.00,end:28.00},
+    D:{init:10.50,end:9.00}, E:{init:5.00,end:3.20}, F:{init:12.50,end:14.50}
+  },
+  2023: {
+    A:{init:14,end:20}, B:{init:11,end:10}, C:{init:28,end:25},
+    D:{init:9,end:8.2}, E:{init:3.2,end:2.2}, F:{init:14.5,end:18}
+  },
+  2024: {
+    A:{init:20,end:30}, B:{init:10,end:12.5}, C:{init:25,end:22},
+    D:{init:8.2,end:7}, E:{init:2.2,end:1.5}, F:{init:18,end:22}
+  },
+};
+
+const el = s => document.querySelector(s);
+const fmt = n => new Intl.NumberFormat('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}).format(+n||0);
 
 let currentYear = 2020;
 const historyRecords = [];
 
+/* === 显示当前年份 === */
 function renderYearBadge(){
-  el('#yearBadge').textContent = `当前年份： ${currentYear} 年`;
+  el('#yearBadge').textContent = `当前年份：${currentYear} 年`;
 }
 
+/* === 生成每组卡片 === */
 function makeGroupCard(groupIndex){
+  const prices = YEARLY_PRICES[currentYear];
   const card = document.createElement('section');
   card.className = 'card';
   card.dataset.group = groupIndex;
-  card.dataset.default = JSON.stringify(DEFAULT_STOCKS);
+
   const headerHTML = `
     <div class="wrap">
       <div class="row" style="justify-content:space-between">
         <div>
           <h2>第 ${groupIndex+1} 组</h2>
-          <div class="muted">可自定义本组初始/年末价格与买入股数</div>
+          <div class="muted">当前年份：${currentYear} 年</div>
         </div>
         <div class="row" style="gap:8px">
           <label>起始资金($)：<input type="number" step="1" value="${DEFAULT_CASH}" class="cash-input"></label>
-          <button class="ghost" onclick="resetGroup(${groupIndex})">重置本组价格</button>
+          <button class="ghost" onclick="resetGroup(${groupIndex})">重置价格</button>
         </div>
       </div>
       <div class="sum">
@@ -466,243 +505,253 @@ function makeGroupCard(groupIndex){
         <div class="box"><b>已投入</b><span id="invested-${groupIndex}">$0.00</span></div>
         <div class="box"><b>未投资资产</b><span id="cashleft-${groupIndex}">$0.00</span></div>
         <div class="box"><b>期末市值</b><span id="mktval-${groupIndex}">$0.00</span></div>
-        <div class="box"><b>总盈亏</b><span id="pnl-${groupIndex}" class="">$0.00</span></div>
+        <div class="box"><b>总盈亏</b><span id="pnl-${groupIndex}">$0.00</span></div>
       </div>
-
-      <!-- ✅ 新增额外支出输入框 -->
       <div class="row" style="margin-top:8px;gap:10px;">
         <label>额外支出($)：<input type="number" step="0.01" value="0" class="extra-cost"></label>
       </div>
-    </div>
-  `;
+    </div>`;
 
-  const rowsHTML = DEFAULT_STOCKS.map((s, i) => `
-    <tr data-row="${i}">
-      <td>${s.code}</td>
-      <td>${s.name}</td>
-      <td>${s.sector}</td>
-      <td><input type="number" step="0.01" value="${s.init}" class="init"></td>
-      <td><input type="number" step="1" value="0" class="qty"></td>
-      <td class="invested">$0.00</td>
-      <td><input type="number" step="0.01" value="${s.end}" class="end"></td>
-      <td class="pnl">$0.00</td>
-    </tr>
-  `).join('');
-  card.innerHTML = `
-    ${headerHTML}
+  const rowsHTML = DEFAULT_STOCKS.map(s=>{
+    const p = prices[s.code] || {init:0,end:0};
+    return `
+      <tr>
+        <td>${s.code}</td><td>${s.name}</td><td>${s.sector}</td>
+        <td><input type="number" step="0.01" value="${p.init}" class="init"></td>
+        <td><input type="number" step="1" value="0" class="qty"></td>
+        <td class="invested">$0.00</td>
+        <td><input type="number" step="0.01" value="${p.end}" class="end hidden-end" disabled></td>
+        <td class="pnl hidden-pnl">$0.00</td>
+      </tr>`;
+  }).join('');
+
+  card.innerHTML = `${headerHTML}
     <div style="padding:0 14px 14px">
       <table>
         <thead>
-          <tr>
-            <th>代码</th><th>股票名称</th><th>板块</th>
-            <th>买入价($)</th><th>股数</th><th>投入金额($)</th><th>年末价($)</th><th>盈亏($)</th>
-          </tr>
+          <tr><th>代码</th><th>股票名称</th><th>板块</th><th>买入价($)</th><th>股数</th><th>投入金额($)</th><th>年末价($)</th><th>盈亏($)</th></tr>
         </thead>
         <tbody>${rowsHTML}</tbody>
         <tfoot>
           <tr><td colspan="5" style="text-align:right">合计：</td>
-          <td id="subtotal-invest-${groupIndex}">$0.00</td>
-          <td class="muted">—</td>
+          <td id="subtotal-invest-${groupIndex}">$0.00</td><td class="muted">—</td>
           <td id="subtotal-pnl-${groupIndex}">$0.00</td></tr>
         </tfoot>
       </table>
-      <div class="footer-note">提示：修改任一价格或股数将自动刷新计算；盈亏＝（年末价－买入价）× 股数。</div>
-    </div>
-  `;
-  card.querySelectorAll('input').forEach(inp=>{
-    inp.addEventListener('input', ()=>recalcGroup(card));
-  });
+    </div>`;
+  card.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>recalcGroup(card)));
   recalcGroup(card);
   return card;
 }
 
+/* === 实时计算每组资产 === */
 function recalcGroup(card){
-  const groupIndex = +card.dataset.group;
-  const cashInput = +card.querySelector('.cash-input').value || 0;
-  const extraCost = +card.querySelector('.extra-cost')?.value || 0; // ✅ 新增
-  const cash = cashInput - extraCost; // ✅ 扣除额外支出
+  const idx = +card.dataset.group;
+  const cashInput = +card.querySelector('.cash-input').value||0;
+  const extraCost = +card.querySelector('.extra-cost').value||0;
+  const cash = cashInput - extraCost;
+  let invested=0,pnl=0,mktval=0;
 
-  let investedTotal = 0, pnlTotal = 0, endValueTotal = 0;
+  // 判断是否显示年末价（年末结算是否已触发）
+  const endVisible = !card.querySelector('.end').classList.contains('hidden-end');
+
   card.querySelectorAll('tbody tr').forEach(tr=>{
-    const init = +tr.querySelector('.init').value || 0;
-    const qty  = +tr.querySelector('.qty').value || 0;
-    const endp = +tr.querySelector('.end').value || 0;
-    const invested = init * qty;
-    const pnl = (endp - init) * qty;
-    const mkt = endp * qty;
-    investedTotal += invested;
-    pnlTotal += pnl;
-    endValueTotal += mkt;
-    tr.querySelector('.invested').textContent = '$' + fmt(invested);
-    const pnlCell = tr.querySelector('.pnl');
-    pnlCell.textContent = '$' + fmt(pnl);
-    pnlCell.classList.remove('pos','neg');
-    if (pnl > 0) pnlCell.classList.add('pos');
-    if (pnl < 0) pnlCell.classList.add('neg');
+    const init=+tr.querySelector('.init').value||0;
+    const qty=+tr.querySelector('.qty').value||0;
+    const end=+tr.querySelector('.end').value||0;
+    const invest=init*qty;
+    const profit=endVisible ? (end-init)*qty : 0; // ❗未结算前盈亏为0
+    invested+=invest;pnl+=profit;mktval+=endVisible ? end*qty : 0;
+
+    tr.querySelector('.invested').textContent='$'+fmt(invest);
+    const pnlCell=tr.querySelector('.pnl');
+    pnlCell.textContent='$'+fmt(profit);
+    pnlCell.classList.toggle('pos',profit>0);
+    pnlCell.classList.toggle('neg',profit<0);
   });
 
-    // ✅ 新增逻辑：判断是否超过总资产
-  if (investedTotal > cash) {
-    alert(`第 ${groupIndex + 1} 组：已投入资产已超过总资产，请重新调整！`);
-  }
+  card.querySelector(`#subtotal-invest-${idx}`).textContent='$'+fmt(invested);
+  card.querySelector(`#subtotal-pnl-${idx}`).textContent='$'+fmt(pnl);
+  card.querySelector(`#totalasset-${idx}`).textContent='$'+fmt(cash);
+  card.querySelector(`#invested-${idx}`).textContent='$'+fmt(invested);
+  card.querySelector(`#cashleft-${idx}`).textContent='$'+fmt(cash-invested);
+  card.querySelector(`#mktval-${idx}`).textContent='$'+fmt(mktval);
 
-  card.querySelector(`#subtotal-invest-${groupIndex}`).textContent = '$' + fmt(investedTotal);
-  const subtotalPNL = card.querySelector(`#subtotal-pnl-${groupIndex}`);
-  subtotalPNL.textContent = '$' + fmt(pnlTotal);
-  subtotalPNL.classList.toggle('pos', pnlTotal>0);
-  subtotalPNL.classList.toggle('neg', pnlTotal<0);
-  card.querySelector(`#totalasset-${groupIndex}`).textContent = '$' + fmt(cash);
-  card.querySelector(`#invested-${groupIndex}`).textContent = '$' + fmt(investedTotal);
-  card.querySelector(`#cashleft-${groupIndex}`).textContent = '$' + fmt(cash - investedTotal);
-  card.querySelector(`#mktval-${groupIndex}`).textContent = '$' + fmt(endValueTotal);
-  const pnlEl = card.querySelector(`#pnl-${groupIndex}`);
-  pnlEl.textContent = '$' + fmt(pnlTotal);
-  pnlEl.classList.toggle('pos', pnlTotal>0);
-  pnlEl.classList.toggle('neg', pnlTotal<0);
+  const pnlEl=card.querySelector(`#pnl-${idx}`);
+  pnlEl.textContent='$'+fmt(pnl);
+  pnlEl.classList.toggle('pos',pnl>0);
+  pnlEl.classList.toggle('neg',pnl<0);
 }
 
-function resetGroup(groupIndex){
-  const card = document.querySelector(`.card[data-group="${groupIndex}"]`);
-  const defaults = JSON.parse(card.dataset.default);
-  card.querySelectorAll('tbody tr').forEach((tr, i)=>{
-    tr.querySelector('.init').value = defaults[i].init;
-    tr.querySelector('.end').value  = defaults[i].end;
-  });
-  recalcGroup(card);
-}
-
+/* === 构建表格 === */
 function build(){
-  const grid = el('#grid');
-  grid.innerHTML = '';
-  const n = Math.max(1, Math.min(20, +el('#groupCount').value || 1));
-  for(let i=0;i<n;i++){
-    grid.appendChild(makeGroupCard(i));
-  }
+  const grid=el('#grid');
+  grid.innerHTML='';
+  const n=Math.max(1,Math.min(20,+el('#groupCount').value||1));
+  for(let i=0;i<n;i++) grid.appendChild(makeGroupCard(i));
   renderYearBadge();
 }
 
+/* === 结算收集 === */
 function collectGroupSummary(card){
-  const idx = +card.dataset.group;
-  const cash = +card.querySelector('.cash-input').value || 0;
-  const invested = +(card.querySelector(`#invested-${idx}`).textContent.replace(/[^0-9.\-]/g,'')) || 0;
-  const pnl = +(card.querySelector(`#pnl-${idx}`).textContent.replace(/[^0-9.\-]/g,'')) || 0;
-  const endVal = +(card.querySelector(`#mktval-${idx}`).textContent.replace(/[^0-9.\-]/g,'')) || 0;
-  const cashLeft = +(card.querySelector(`#cashleft-${idx}`).textContent.replace(/[^0-9.\-]/g,'')) || 0;
-  const qualified = invested >= cash * 0.5;
-  return {group: idx+1, invested, pnl, qualified, totalAsset: cash, endVal, cashLeft};
+  const idx=+card.dataset.group;
+  const cash=+card.querySelector('.cash-input').value||0;
+  const invested=+(card.querySelector(`#invested-${idx}`).textContent.replace(/[^0-9.\-]/g,''))||0;
+  const pnl=+(card.querySelector(`#pnl-${idx}`).textContent.replace(/[^0-9.\-]/g,''))||0;
+  const endVal=+(card.querySelector(`#mktval-${idx}`).textContent.replace(/[^0-9.\-]/g,''))||0;
+  const cashLeft=+(card.querySelector(`#cashleft-${idx}`).textContent.replace(/[^0-9.\-]/g,''))||0;
+  const qualified=invested>=cash*0.5;
+  return {group:idx+1,invested,pnl,qualified,endVal,cashLeft,total:cash};
 }
 
+/* === 排名排序 === */
 function rankResults(results){
-  const qualifiedList = results.filter(r=>r.qualified).sort((a,b)=>b.pnl - a.pnl);
-  const unqualifiedList = results.filter(r=>!r.qualified).sort((a,b)=>a.invested - b.invested);
-  return {finalList: [...qualifiedList, ...unqualifiedList], hadUnqualified: unqualifiedList.length>0};
+  const q=results.filter(r=>r.qualified).sort((a,b)=>b.pnl-a.pnl);
+  const unq=results.filter(r=>!r.qualified).sort((a,b)=>a.invested-b.invested);
+  return {finalList:[...q,...unq],hadUnqualified:unq.length>0};
 }
 
+/* === 历史渲染 === */
 function renderHistory(){
-  const box = el('#historyList');
-  box.innerHTML = '';
+  const box=el('#historyList');
+  box.innerHTML='';
   historyRecords.forEach(rec=>{
-    const note = rec.hadUnqualified ? '存在未达标：未达标组排在后方，且按已投资金额升序排列。' : '全部达标：按总盈亏从高到低排名。';
-    const card = document.createElement('div');
-    card.className = 'year-card';
-    const rows = rec.results.map((r,i)=>`
-      <tr>
-        <td>${i+1}</td>
-        <td>第 ${r.group} 组</td>
-        <td style="color:${r.qualified?'green':'red'}">${r.qualified?'✔ 达标':'✘ 未达标'}</td>
-        <td>${fmt(r.invested)}</td>
-        <td class="${r.pnl>0?'pos':r.pnl<0?'neg':''}">${fmt(r.pnl)}</td>
-      </tr>
-    `).join('');
-    card.innerHTML = `
-      <div class="year-head">
-        <strong>第 ${rec.year} 年结算结果</strong>
-        <span class="muted">${note}</span>
-      </div>
+    const note=rec.hadUnqualified?'存在未达标组（已排后）':'全部达标：按总盈亏降序';
+    const card=document.createElement('div');
+    card.className='year-card';
+    const rows=rec.results.map((r,i)=>`
+      <tr><td>${i+1}</td><td>第 ${r.group} 组</td>
+      <td style="color:${r.qualified?'green':'red'}">${r.qualified?'✔ 达标':'✘ 未达标'}</td>
+      <td>${fmt(r.invested)}</td>
+      <td class="${r.pnl>0?'pos':r.pnl<0?'neg':''}">${fmt(r.pnl)}</td></tr>`
+    ).join('');
+    card.innerHTML=`
+      <div class="year-head"><strong>${rec.year} 年结算结果</strong><span class="muted">${note}</span></div>
       <div class="year-body">
-        <div style="overflow:auto">
-          <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:14px;width:100%">
-            <thead><tr><th>排名</th><th>组别</th><th>是否达标</th><th>已投资($)</th><th>总盈亏($)</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    `;
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr><th>排名</th><th>组别</th><th>是否达标</th><th>已投资($)</th><th>总盈亏($)</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
     box.appendChild(card);
   });
 }
 
-function prepareNextYear(){
-  // ✅ 每年结算后：将盈亏自动计入下一年初资金
-  document.querySelectorAll('.card').forEach(card=>{
-    const idx = +card.dataset.group;
-    const endVal = +(card.querySelector(`#mktval-${idx}`).textContent.replace(/[^0-9.\-]/g,'')) || 0;
-    const cashLeft = +(card.querySelector(`#cashleft-${idx}`).textContent.replace(/[^0-9.\-]/g,'')) || 0;
-    const nextCash = endVal + cashLeft; // 年初资金 = 上年末股票市值 + 剩余现金
+/* === 年度推进 === */
+function prepareNextYear() {
+  const nextYear = currentYear + 1;
+  const nextPrices = YEARLY_PRICES[nextYear];
+  if (!nextPrices) {
+    alert('⚠ 已无后续年度剧本，游戏结束！');
+    return;
+  }
 
-    const rows = card.querySelectorAll('tbody tr');
-    rows.forEach(tr=>{
-      const endPrice = +tr.querySelector('.end').value || 0;
-      tr.querySelector('.init').value = endPrice; // 新年初价 = 上年年末价
-      tr.querySelector('.qty').value = 0;          // 股数清零
-      tr.querySelector('.end').value = endPrice;   // 默认年末价 = 年初价
+  document.querySelectorAll('.card').forEach(card => {
+    const idx = +card.dataset.group;
+
+    // 取上年结算结果
+    const endVal = parseFloat(card.querySelector(`#mktval-${idx}`).textContent.replace(/[^0-9.\-]/g, '')) || 0;
+    const cashLeft = parseFloat(card.querySelector(`#cashleft-${idx}`).textContent.replace(/[^0-9.\-]/g, '')) || 0;
+    const pnl = parseFloat(card.querySelector(`#pnl-${idx}`).textContent.replace(/[^0-9.\-]/g, '')) || 0;
+
+    // ✅ 下一年起始资金 = 上一年未投资资产  + 盈亏
+    const nextCash = cashLeft + pnl;
+    card.querySelector('.cash-input').value = nextCash.toFixed(2);
+
+    // ✅ 重置额外支出（新一年重新计算）
+    card.querySelector('.extra-cost').value = 0;
+
+    // 更新股票价格与数量
+    card.querySelectorAll('tbody tr').forEach(tr => {
+      const code = tr.querySelector('td:first-child').textContent;
+      const p = nextPrices[code] || { init: 0, end: 0 };
+      tr.querySelector('.init').value = p.init;
+      tr.querySelector('.end').value = p.end;
+      tr.querySelector('.qty').value = 0;
+
+      // 默认隐藏年末价与盈亏列
+      tr.querySelector('.end').classList.add('hidden-end');
+      tr.querySelector('.end').disabled = true;
+      tr.querySelector('.pnl').classList.add('hidden-pnl');
     });
 
-    card.querySelector('.cash-input').value = nextCash.toFixed(2);
+    // 重新计算并刷新界面
     recalcGroup(card);
   });
+
+  // 更新年份显示
+  currentYear = nextYear;
+  renderYearBadge();
+   document.querySelectorAll('.card .muted').forEach(el=>{
+    el.textContent = `当前年份：${currentYear} 年`;
+  });
+  console.log(`✅ 已推进到 ${currentYear} 年（额外支出已重置）`);
 }
 
-// === UI 绑定 ===
-el('#build').addEventListener('click', build);
-el('#resetAll').addEventListener('click', ()=>{
-  document.querySelectorAll('.card').forEach(c=>resetGroup(+c.dataset.group));
-});
-el('#viewHistory').addEventListener('click', ()=>{
-  const sec = el('#historySection');
-  sec.classList.toggle('hidden');
-  if (!sec.classList.contains('hidden')) renderHistory();
-});
 
-// === 年末结算 ===
-el('#settleYear').addEventListener('click', ()=>{
-  const resultsRaw = [];
-  document.querySelectorAll('.card').forEach(card=>{
-    resultsRaw.push(collectGroupSummary(card));
-  });
-  const {finalList, hadUnqualified} = rankResults(resultsRaw);
 
-  historyRecords.push({year: currentYear, results: finalList, hadUnqualified});
+/* === 绑定事件 === */
+el('#build').addEventListener('click',build);
+el('#viewHistory').addEventListener('click',()=>{
+  el('#historySection').classList.toggle('hidden');
   renderHistory();
-  el('#historySection').style.display = 'block';
+});
+// 👇 新增：年末结算时显示所有年末价
 
-  let html = `
-  <h2>${currentYear} 年 · 年末结算结果</h2>
-  <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:14px;width:100%">
+el('#settleYear').addEventListener('click',()=>{
+  // 显示年末价与盈亏
+  document.querySelectorAll('.end.hidden-end').forEach(inp=>{
+    inp.classList.remove('hidden-end');
+    inp.disabled = false;
+  });
+  document.querySelectorAll('.pnl.hidden-pnl').forEach(td=>{
+    td.classList.remove('hidden-pnl');
+  });
+
+  // 重新计算盈亏（年末价已显示）
+  document.querySelectorAll('.card').forEach(card=>recalcGroup(card));
+
+  // 以下为原有结算逻辑
+  const results=[];
+  document.querySelectorAll('.card').forEach(card=>results.push(collectGroupSummary(card)));
+  const {finalList,hadUnqualified}=rankResults(results);
+  historyRecords.push({year:currentYear,results:finalList,hadUnqualified});
+  renderHistory();
+  el('#historySection').classList.remove('hidden');
+
+  // 打印窗口
+  const html=`
+  <h2>${currentYear} 年结算结果</h2>
+  <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">
     <thead><tr><th>排名</th><th>组别</th><th>是否达标</th><th>已投资($)</th><th>总盈亏($)</th></tr></thead>
-    <tbody>
-    ${finalList.map((r,i)=>`
-      <tr>
-        <td>${i+1}</td>
-        <td>第 ${r.group} 组</td>
-        <td style="color:${r.qualified?'green':'red'}">${r.qualified?'✔ 达标':'✘ 未达标'}</td>
-        <td>${fmt(r.invested)}</td>
-        <td style="color:${r.pnl>0?'#0a7f2e':r.pnl<0?'#b00020':'inherit'}">${fmt(r.pnl)}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-  <p class="muted">提示：可打印保存为 PDF。</p>
-  `;
-  const w = window.open('', '_blank');
-  if (w) w.document.write(`<title>${currentYear} 年结算结果</title>${html}`);
+    <tbody>${finalList.map((r,i)=>`
+      <tr><td>${i+1}</td><td>第 ${r.group} 组</td>
+      <td style="color:${r.qualified?'green':'red'}">${r.qualified?'✔':'✘'}</td>
+      <td>${fmt(r.invested)}</td>
+      <td style="color:${r.pnl>0?'#0a7f2e':r.pnl<0?'#b00020':'inherit'}">${fmt(r.pnl)}</td></tr>`).join('')}
+    </tbody></table>
+    <p class="muted">提示：可使用浏览器打印保存 PDF。</p>`;
+  const w=window.open('', '_blank');
+  if(w) w.document.write(`<title>${currentYear} 年结算</title>${html}`);
 
-  // 自动进入下一年
-  currentYear += 1;
+  // 年度推进
   renderYearBadge();
   prepareNextYear();
 });
 
-window.addEventListener('DOMContentLoaded', build);
+
+window.addEventListener('DOMContentLoaded',build);
+function resetGroup(idx){
+  const card=document.querySelector(`.card[data-group="${idx}"]`);
+  const pset=YEARLY_PRICES[currentYear];
+  card.querySelectorAll('tbody tr').forEach(tr=>{
+    const code=tr.querySelector('td:first-child').textContent;
+    const p=pset[code]||{init:0,end:0};
+    tr.querySelector('.init').value=p.init;
+    tr.querySelector('.end').value=p.end;
+  });
+  recalcGroup(card);
+}
 </script>
 </body>
 </html>
