@@ -653,7 +653,7 @@ function prepareNextYear() {
   const nextYear = currentYear + 1;
   const nextPrices = YEARLY_PRICES[nextYear];
   if (!nextPrices) {
-    // === 🏁 最终结算（美化打印版） ===
+    // === 🏁 最终结算 ===
     const finals = document.querySelectorAll('.card');
     const summary = [];
 
@@ -815,6 +815,7 @@ function prepareNextYear() {
     const nextCash = cashLeft + endVal;
     card.querySelector('.cash-input').value = nextCash.toFixed(2);
     card.querySelector('.extra-cost').value = 0;
+    card.querySelector('.extra-income').value = 0;
 
     card.querySelectorAll('tbody tr').forEach(tr=>{
       const code = tr.querySelector('td:first-child').textContent;
@@ -825,12 +826,16 @@ function prepareNextYear() {
     });
     recalcGroup(card);
   });
+  
   currentYear = nextYear;
   renderYearBadge();
+
+  document.querySelectorAll('.card .muted').forEach(el => {
+    el.textContent = `当前年份：${currentYear} 年`;
+  });
 }
 
-/* === 结算事件 === */
-/* === 🧾 年末结算事件（年度 + 最终结算美化打印版） === */
+/* === 🧾 年末结算事件（年度 + 最终结算） === */
 el('#settleYear').addEventListener('click',()=>{
   const results = [];
   document.querySelectorAll('.card').forEach(card => results.push(collectGroupSummary(card)));
@@ -839,7 +844,6 @@ el('#settleYear').addEventListener('click',()=>{
   renderHistory();
   el('#historySection').classList.remove('hidden');
 
-  // 🎨 通用美化样式（年度 + 最终共用）
   const baseStyle = `
   <style>
     :root {
