@@ -384,6 +384,7 @@
 
 <script>
 // === 启动画面逻辑 ===
+let groupNames = []; // ✅ 新增全局变量，用于保存组名
 const startScreen = document.getElementById('startScreen');
 const setupScreen = document.getElementById('setupScreen');
 const startBtn = document.getElementById('startBtn');
@@ -418,19 +419,24 @@ generateBtn.addEventListener('click', () => {
   document.querySelector('main').style.display = 'block';
   document.querySelector('.sticky-actions').style.display = 'flex';
 
-  // 同步组名：修改每个组标题
+  // ✅ 记录组名
   const n = +setupCount.value || 4;
-  const names = [];
-  for (let i=0; i<n; i++){
-    names.push(document.getElementById(`gname-${i}`).value.trim() || `第 ${i+1} 组`);
+  groupNames = [];
+  for (let i = 0; i < n; i++) {
+    const name = document.getElementById(`gname-${i}`).value.trim() || `第 ${i + 1} 组`;
+    groupNames.push(name);
   }
 
-  // 延时更新表格，等 build() 执行
+  // ✅ 设置组数并生成表格
+  document.querySelector('#groupCount').value = setupCount.value;
+  build();
+
+  // ✅ 更新每个组标题
   setTimeout(() => {
-    document.querySelectorAll('.card h2').forEach((h, i)=>{
-      if (names[i]) h.textContent = names[i];
+    document.querySelectorAll('.card h2').forEach((h, i) => {
+      if (groupNames[i]) h.textContent = groupNames[i];
     });
-  }, 500);
+  }, 300);
 });
 </script>
 
@@ -491,7 +497,7 @@ function makeGroupCard(groupIndex){
     <div class="wrap">
       <div class="row" style="justify-content:space-between">
         <div>
-          <h2>第 ${groupIndex+1} 组</h2>
+          <h2>${groupNames[groupIndex] || `第 ${groupIndex+1} 组`}</h2>
           <div class="muted">当前年份：${currentYear} 年</div>
         </div>
         <div class="row" style="gap:8px">
@@ -629,7 +635,7 @@ function renderHistory(){
     const card=document.createElement('div');
     card.className='year-card';
     const rows=rec.results.map((r,i)=>`
-      <tr><td>${i+1}</td><td>第 ${r.group} 组</td>
+      <tr><td>${i+1}</td><td>${groupNames[r.group - 1] || `第 ${r.group} 组`}</td>
       <td style="color:${r.qualified?'green':'red'}">${r.qualified?'✔ 达标':'✘ 未达标'}</td>
       <td>${(r.investRatio*100).toFixed(1)}%</td>
       <td>${(r.returnRate*100).toFixed(1)}%</td>
@@ -804,7 +810,8 @@ function prepareNextYear() {
       w.focus();
     }
 
-    alert(`🏁 游戏结束！冠军是「第 ${summary[0].group} 组」，累计收益率 ${(summary[0].totalReturn*100).toFixed(1)}%！`);
+    const winnerName = groupNames[summary[0].group - 1] || `第 ${summary[0].group} 组`;
+    alert(`🏁 游戏结束！冠军是「${winnerName}」，累计收益率 ${(summary[0].totalReturn*100).toFixed(1)}%！`);
     return;
   }
 
@@ -952,7 +959,7 @@ el('#settleYear').addEventListener('click',()=>{
           ${finalList.map((r,i)=>`
             <tr class="${i===0?'rank-1':''}">
               <td>${i+1}</td>
-              <td>第 ${r.group} 组</td>
+              <td>${groupNames[r.group - 1] || `第 ${r.group} 组`}</td>
               <td>${r.qualified ? '✔ 达标' : '✘ 未达标'}</td>
               <td>${(r.investRatio*100).toFixed(1)}%</td>
               <td class="${r.returnRate>=0?'pos':'neg'}">${(r.returnRate*100).toFixed(1)}%</td>
@@ -1002,14 +1009,14 @@ el('#settleYear').addEventListener('click',()=>{
         ${summary.map((r,i)=>`
           <tr class="${i===0?'rank-1':''}">
             <td>${i+1}</td>
-            <td>第 ${r.group} 组</td>
+            <td>${groupNames[r.group - 1] || `第 ${r.group} 组`}</td>
             <td>${fmt(r.totalAsset)}</td>
             <td class="pos">${(r.totalReturn*100).toFixed(1)}%</td>
           </tr>`).join('')}
       </tbody>
     </table>
     <div class="footer">
-      最终胜负以总资产增长率为准，恭喜 <b>第 ${summary[0].group} 组</b> 获得冠军！ 🎉
+      最终胜负以总资产增长率为准，恭喜 <b>${groupNames[summary[0].group - 1] || `第 ${summary[0].group} 组`}</b> 获得冠军！
     </div>
     <div class="actions">
       <button onclick="window.print()">🖨️ 打印 / 保存 PDF</button>
@@ -1017,7 +1024,8 @@ el('#settleYear').addEventListener('click',()=>{
 
   const w = window.open('', '_blank');
   if (w) { w.document.write(`<title>最终结算</title>${html}`); w.document.close(); w.focus(); }
-  alert(`🏁 游戏结束！冠军是「第 ${summary[0].group} 组」，累计收益率 ${(summary[0].totalReturn*100).toFixed(1)}%！`);
+  const winnerName = groupNames[summary[0].group - 1] || `第 ${summary[0].group} 组`;
+  alert(`🏁 游戏结束！冠军是「${winnerName}」，累计收益率 ${(summary[0].totalReturn*100).toFixed(1)}%！`);
 });
 
 el('#build').addEventListener('click',build);
